@@ -34,7 +34,6 @@ const getTimeAgo = (timestamp: number) => {
 
 export const LiveFeed = () => {
     // --- State ---
-    // Force update comment
     const [tokens, setTokens] = useState<PumpToken[]>([]);
     const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
     const [lastPing, setLastPing] = useState<number>(0);
