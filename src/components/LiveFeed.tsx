@@ -84,71 +84,89 @@ export const LiveFeed = () => {
         if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
 
         setStatus('connecting');
-        const ws = new WebSocket('wss://pumpportal.fun/api/data');
-        wsRef.current = ws;
+        setError(null);
+        
+        try {
+            const ws = new WebSocket('wss://pumpportal.fun/api/data');
+            wsRef.current = ws;
 
-        ws.onopen = () => {
-            console.log("Connected to PumpPortal");
-            setStatus('connected');
-            // Subscribe to new token creations
-            ws.send(JSON.stringify({ method: "subscribeNewToken" })); 
-        };
+            ws.onopen = () => {
+                console.log("Connected to PumpPortal");
+                setStatus('connected');
+                setError(null);
+                // Subscribe to new token creations
+                ws.send(JSON.stringify({ method: "subscribeNewToken" })); 
+            };
 
-        ws.onmessage = async (event) => {
-            setLastPing(Date.now());
-            try {
-                const data = JSON.parse(event.data);
-                
-                // Only handle 'new_token' txType (or similar, PumpPortal sends creation events)
-                // The structure for new tokens usually has 'mint', 'name', 'symbol', 'uri'
-                if (!data.mint) return;
+            ws.onmessage = async (event) => {
+                setLastPing(Date.now());
+                setMsgCount(prev => prev + 1);
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.errors) {
+                        console.error("PumpPortal Error:", data.errors);
+                        setError(`API Error: ${data.errors.join(', ')}`);
+                        return;
+                    }
 
-                // Preliminary token object
-                const newToken: PumpToken = {
-                    mint: data.mint,
-                    name: data.name || 'Unknown',
-                    symbol: data.symbol || '???',
-                    uri: data.uri || '',
-                    image_uri: '/placeholder.png', // placeholder initially
-                    market_cap: (data.vSolInBondingCurve || 0) * 195, // Approx SOL price $195
-                    creator: data.traderPublicKey || 'Unknown',
-                    created_timestamp: Date.now(),
-                    description: ''
-                };
+                    // Only handle 'new_token' txType (or similar, PumpPortal sends creation events)
+                    // The structure for new tokens usually has 'mint', 'name', 'symbol', 'uri'
+                    if (!data.mint) return;
 
-                // Fetch image in background if URI exists
-                if (newToken.uri) {
-                    fetchTokenImage(newToken.uri).then(img => {
-                        if (img) {
-                            setTokens(prev => prev.map(t => t.mint === newToken.mint ? { ...t, image_uri: img } : t));
-                        }
-                    });
+                    // Preliminary token object
+                    const newToken: PumpToken = {
+                        mint: data.mint,
+                        name: data.name || 'Unknown',
+                        symbol: data.symbol || '???',
+                        uri: data.uri || '',
+                        image_uri: '/placeholder.png', // placeholder initially
+                        market_cap: (data.vSolInBondingCurve || 0) * 195, // Approx SOL price $195
+                        creator: data.traderPublicKey || 'Unknown',
+                        created_timestamp: Date.now(),
+                        description: ''
+                    };
+
+                    // Fetch image in background if URI exists
+                    if (newToken.uri) {
+                        fetchTokenImage(newToken.uri).then(img => {
+                            if (img) {
+                                setTokens(prev => prev.map(t => t.mint === newToken.mint ? { ...t, image_uri: img } : t));
+                            }
+                        });
+                    }
+
+                    if (isHovered) {
+                        pendingTokens.current = [newToken, ...pendingTokens.current];
+                    } else {
+                        setTokens(prev => {
+                            const next = [newToken, ...prev];
+                            // Limit to 50 items to prevent memory issues but keep history
+                            return next.slice(0, 50);
+                        });
+                    }
+
+                } catch (e) {
+                    console.error("Parse error", e);
                 }
+            };
 
-                if (isHovered) {
-                    pendingTokens.current = [newToken, ...pendingTokens.current];
-                } else {
-                    setTokens(prev => {
-                        const next = [newToken, ...prev];
-                        // Limit to 25 items
-                        return next.slice(0, 25);
-                    });
-                }
+            ws.onclose = (e) => {
+                setStatus('disconnected');
+                console.log("WS Closed", e.code, e.reason);
+                reconnectTimeout.current = setTimeout(connect, 3000);
+            };
 
-            } catch (e) {
-                console.error("Parse error", e);
-            }
-        };
+            ws.onerror = (err) => {
+                console.error("WS Error", err);
+                setError("Connection Failed");
+                ws.close();
+            };
 
-        ws.onclose = () => {
+        } catch (err: any) {
+            setError(`Init Error: ${err.message}`);
             setStatus('disconnected');
-            reconnectTimeout.current = setTimeout(connect, 3000);
-        };
-
-        ws.onerror = (err) => {
-            console.error("WS Error", err);
-            ws.close();
-        };
+        }
 
     }, [isHovered]);
 
