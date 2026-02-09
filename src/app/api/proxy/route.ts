@@ -17,7 +17,8 @@ export async function GET(request: Request) {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
       },
-      next: { revalidate: 0 } 
+      next: { revalidate: 0 },
+      cache: 'no-store', // Ensure no caching
     });
 
     if (!response.ok) {

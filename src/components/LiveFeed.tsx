@@ -189,8 +189,9 @@ export const LiveFeed = () => {
                             +{pendingTokens.current.length} NEW
                         </div>
                     )}
-                    <div className="text-[10px] text-gray-500 font-mono">
-                        {status === 'connected' ? 'SYS_ONLINE' : 'CONNECTING...'}
+                    <div className="text-[10px] text-gray-500 font-mono flex items-center gap-2">
+                        {error && <span className="text-red-500 font-bold">ERR: {error}</span>}
+                        <span>{status === 'connected' ? `ONLINE (${msgCount})` : 'CONNECTING...'}</span>
                     </div>
                 </div>
             </div>
