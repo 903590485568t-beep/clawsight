@@ -38,6 +38,8 @@ export const LiveFeed = () => {
     const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
     const [lastPing, setLastPing] = useState<number>(0);
     const [isHovered, setIsHovered] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [msgCount, setMsgCount] = useState(0);
     
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
